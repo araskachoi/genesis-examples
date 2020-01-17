@@ -1,0 +1,158 @@
+services:
+  - name: Quorum1
+    image: quorumengineering/quorum:2.2.5
+    volumes:
+      - path: /output/
+        name: eea-logs
+    resources:
+      cpus: 4
+      memory: 4 GB
+      storage: 5 GiB
+    input-files:
+      - source-path: genesis.json
+        destination-path: /data/genesis.json
+      - source-path: permissioned-nodes.json
+        destination-path: /data/permissioned-nodes.json
+      - source-path: permissioned-nodes.json
+        destination-path: /data/static-nodes.json
+      - source-path: key1
+        destination-path: /data/keystore/key1
+      - source-path: nodekey1
+        destination-path: /data/nodekey
+      - source-path: passwords.txt
+        destination-path: /data/passwords.txt
+    script:
+      inline: geth --datadir /data init data/genesis.json; geth --datadir /data --unlock 0 --password /data/passwords.txt --ethstats Node1:eea_testnet_secret@ethstats-service0:3000 --syncmode full --mine --minerthreads 1 --rpc --rpcaddr 0.0.0.0 --rpcapi admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum | tee /output/output.log 2>&1                      
+  - name: Quorum2
+    image: quorumengineering/quorum:2.2.5
+    volumes:
+      - path: /output/
+        name: eea-logs
+    resources:
+      cpus: 4
+      memory: 4 GB
+      storage: 5 GiB
+    input-files:
+      - source-path: genesis.json
+        destination-path: /data/genesis.json
+      - source-path: permissioned-nodes.json
+        destination-path: /data/permissioned-nodes.json
+      - source-path: permissioned-nodes.json
+        destination-path: /data/static-nodes.json
+      - source-path: key2
+        destination-path: /data/keystore/key2
+      - source-path: nodekey2
+        destination-path: /data/nodekey
+      - source-path: passwords.txt
+        destination-path: /data/passwords.txt
+    script:
+      inline: geth --datadir /data init data/genesis.json; geth --datadir /data --unlock 0 --password /data/passwords.txt --ethstats Node2:eea_testnet_secret@ethstats-service0:3000 --syncmode full --mine --minerthreads 1 --rpc --rpcaddr 0.0.0.0 --rpcapi admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum | tee /output/output.log 2>&1               
+  - name: ethstats
+    image: gcr.io/whiteblock/ethstats:master
+    environment:
+      HOST: "0.0.0.0"
+    input-files:
+      - source-path: ws_secret.json
+        destination-path: /eth-netstats/ws_secret.json
+  - name: epirus_mongo 
+    image: mongo:latest
+    script:
+      inline: mongod --logpath=/dev/null --bind_ip "0.0.0.0"
+  - name: epirus_api #this need to deployed after -epirus_mongo
+    image: web3labs/epirus-free-api:latest
+    environment:
+      ENABLE_PRIVATE_QUORUM: "enabled"
+      NODE_ENDPOINT: "http://quorum-examples_node1_1:8545"
+      MONGO_CLIENT_URI: "mongodb://mongodb:27017"
+      MONGO_DB_NAME: "epirus"
+  - name: epirus_web #this need to deployed after -epirus_api
+    image: web3labs/epirus-free-web:latest
+    environment: 
+      API_URL: "/api"
+  - name: epirus_nginx #this need to deployed after -epirus_api -epirus_web
+    image: nginx:latest
+    input-files:
+      - source-path: nginx.conf
+        destination-path: /etc/nginx/nginx.conf
+      - source-path: 5xx.html
+        destination-path: /www/error_pages/5xx.html
+task-runners:
+  - name: testnet-expiration
+    script:
+      inline: sleep 7200    
+  - name: wait
+    script:
+      inline: sleep 30
+tests:
+  - name: testnet
+    timeout: infinite
+    description: run an EEA testnet and execute some simple transactions
+    system:
+      - type: Quorum1
+        count: 1
+        port-mappings:
+          - "30303:30303"
+          - "8545:8545"
+        resources: 
+            networks:
+              - name: quorum_network
+      - type: Quorum2
+        count: 1
+        port-mappings:
+          - "30304:30303"
+          - "8546:8545"
+        resources: 
+            networks:
+              - name: quorum_network
+      - type: ethstats
+        count: 1
+        port-mappings:
+          - "80:3000"
+        resources: 
+            networks:
+              - name: quorum_network
+    phases:
+      - name: wait
+        description: wait for first node
+        tasks:
+        - type: wait
+      - name: start_epirus-mongo
+        description: start the explorer - epirus_mongo
+        system:
+        - name: epirus_mongo
+          type: epirus_mongo
+          count: 1
+          port-mappings:
+            - 27017:27017
+          resources:
+            networks:
+              - name: common-network
+      - name: start_epirus-api
+        description: start the explorer - epirus_api
+        system:
+        - name: epirus_api
+          type: epirus_api
+          count: 1
+          resources:
+            networks:
+              - name: common-network
+      - name: start_epirus_web
+        description: start the explorer - epirus_web
+        system:
+        - name: epirus_web
+          type: epirus_web
+          count: 1
+          resources:
+            networks:
+              - name: common-network
+      - name: start_epirus_nginx
+        description: start the explorer - epirus_nginx
+        system:
+        - name: epirus_nginx
+          type: epirus_nginx
+          count: 1
+          port-mappings:
+            - 80:80
+          resources:
+            networks:
+              - name: common-network
