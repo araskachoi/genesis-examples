@@ -22,7 +22,7 @@ services:
       - source-path: passwords.txt
         destination-path: /data/passwords.txt
     script:
-      inline: geth --datadir /data init data/genesis.json; geth --datadir /data --unlock 0 --password /data/passwords.txt --ethstats Node1:eea_testnet_secret@ethstats-service0:3000 --syncmode full --mine --minerthreads 1 --rpc --rpcaddr 0.0.0.0 --rpcapi admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum | tee /output/output.log 2>&1
+      inline: geth --datadir /data init data/genesis.json; geth --datadir /data --unlock 0 --password /data/passwords.txt --syncmode full --mine --minerthreads 1 --rpc --rpcaddr 0.0.0.0 --rpcapi admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum | tee /output/output.log 2>&1
   - name: Quorum2
     image: quorumengineering/quorum:2.2.5
     volumes:
@@ -46,14 +46,20 @@ services:
       - source-path: passwords.txt
         destination-path: /data/passwords.txt
     script:
-      inline: geth --datadir /data init data/genesis.json; geth --datadir /data --unlock 0 --password /data/passwords.txt --ethstats Node2:eea_testnet_secret@ethstats-service0:3000 --syncmode full --mine --minerthreads 1 --rpc --rpcaddr 0.0.0.0 --rpcapi admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum | tee /output/output.log 2>&1
+      inline: geth --datadir /data init data/genesis.json; geth --datadir /data --unlock 0 --password /data/passwords.txt --syncmode full --mine --minerthreads 1 --rpc --rpcaddr 0.0.0.0 --rpcapi admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum | tee /output/output.log 2>&1
+  - name: epirus
+    args:
+        - NODE_ENDPOINT=http://${QUORUM1_SERVICE0_QUORUM_NETWORK}:22001 docker-compose up
+    image: web3labs/epirus-free-web
+    script:
+      inline: NODE_ENDPOINT=http://${QUORUM1_SERVICE0_QUORUM_NETWORK}:22001
 task-runners:
   - name: testnet-expiration
     script:
-      inline: sleep 7200
+      inline: sleep 450
 tests:
   - name: testnet
-    timeout: infinite
+    timeout: 20 m
     description: run an EEA testnet and execute some simple transactions
     system:
       - type: Quorum1
@@ -72,3 +78,15 @@ tests:
         resources:
             networks:
               - name: quorum_network
+      - type: epirus
+        count: 1
+        port-mappings:
+          - "80:5000"
+        resources:
+            networks:
+                - name: quorum_network
+    phases:
+      - name: phase_1
+      - name: phase_2
+        tasks:
+          - type: testnet-expiration
