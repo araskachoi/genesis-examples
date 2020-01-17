@@ -93,7 +93,7 @@ tests:
         port-mappings:
           - "30303:30303"
           - "8545:8545"
-        resources: 
+        resources:
             networks:
               - name: quorum_network
       - type: Quorum2
