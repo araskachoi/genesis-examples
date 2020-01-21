@@ -6,22 +6,10 @@ services:
       volumes:
         - shared:/rpc
         - bitcoin:/data
-      environment:
-        - RPCUSER
-        - RPCPASS
-        - NETWORK
-        - DEBUG
-        - MINING_ADDRESS
       entrypoint: ["./start-btcd.sh"]
     lnd:
       image: gcr.io/whiteblock/btc-lightning/lnd:master
       container_name: lnd
-      environment:
-        - RPCUSER
-        - RPCPASS
-        - NETWORK
-        - CHAIN
-        - DEBUG
       volumes:
         - shared:/rpc
         - lnd:/root/.lnd
