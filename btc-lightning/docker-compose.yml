@@ -1,0 +1,37 @@
+version: '2'
+services:
+    btcd:
+      image: gcr.io/whiteblock/btc-lightning/btcd:master
+      container_name: btcd
+      volumes:
+        - shared:/rpc
+        - bitcoin:/data
+      environment:
+        - RPCUSER
+        - RPCPASS
+        - NETWORK
+        - DEBUG
+        - MINING_ADDRESS
+      entrypoint: ["./start-btcd.sh"]
+    lnd:
+      image: gcr.io/whiteblock/btc-lightning/lnd:master
+      container_name: lnd
+      environment:
+        - RPCUSER
+        - RPCPASS
+        - NETWORK
+        - CHAIN
+        - DEBUG
+      volumes:
+        - shared:/rpc
+        - lnd:/root/.lnd
+      entrypoint: ["./start-lnd.sh"]
+      links:
+        - "btcd:blockchain"
+volumes:
+  shared:
+    driver: local
+  bitcoin:
+    driver: local
+  lnd:
+    driver: local
