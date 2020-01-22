@@ -38,13 +38,7 @@ test:
 monitor:
   type:
     - docker
-    - process
   docker:
     name:
-      - peer0.org1.example.com
-      - http://192.168.1.100:2375/orderer.example.com
-  process:
-    - command: node
-      arguments: local-client.js
-      multiOutput: avg
+      - http://${BESU1_SERVICE0_BESU_NETWORK}:2375
   interval: 1
