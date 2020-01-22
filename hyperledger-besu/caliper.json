@@ -1,0 +1,12 @@
+{
+  "caliper": {
+    "blockchain": "ethereum",
+    "command" : {
+      "start": "docker-compose -f networks/ethereum/1node-clique/docker-compose.yml up -d && sleep 3",
+      "end" : "docker-compose -f networks/ethereum/1node-clique/docker-compose.yml down"
+    }
+  },
+  "ethereum": {
+    "url": "http://172.17.0.2:8545"
+    }
+}
